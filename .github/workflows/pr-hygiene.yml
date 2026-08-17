@@ -1,0 +1,50 @@
+name: PR Hygiene
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+
+jobs:
+  branch-name:
+    name: Branch name
+    if: github.event_name == 'push' || github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        shell: bash
+        run: |
+          BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}}"
+          echo "Checking branch: $BRANCH_NAME"
+
+          if [[ "$BRANCH_NAME" == "main" ]]; then
+            echo "Branch is main, skipping."
+            exit 0
+          fi
+
+          # <category>/<slug>: category is one of the prefixes below, slug is 3-50 chars,
+          # lowercase alphanumeric with optional internal '-'/'_', no leading/trailing separator.
+          # "release" is included because cd.yml's own automation pushes to release/next.
+          PATTERN='^(feature|fix|chore|docs|refactor|perf|test|build|ci|style|revert|release|hotfix|security)\/[a-z0-9][a-z0-9_-]{1,48}[a-z0-9]$'
+
+          if [[ "$BRANCH_NAME" =~ $PATTERN ]]; then
+            echo "Branch name is valid: $BRANCH_NAME"
+          else
+            echo "::error::Invalid branch name '$BRANCH_NAME'. Expected <category>/<slug>, e.g. feature/moon-phase-sync. Allowed categories: feature, fix, chore, docs, refactor, perf, test, build, ci, style, revert, release, hotfix, security."
+            exit 1
+          fi
+
+  pr-title:
+    name: PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

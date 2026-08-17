@@ -1,0 +1,39 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended", ":semanticCommits", "helpers:pinGitHubActionDigests"],
+	"timezone": "UTC",
+	"schedule": ["before 6am on monday"],
+	"packageRules": [
+		{
+			"description": "One grouped weekly PR instead of one PR per dependency.",
+			"matchPackageNames": ["*"],
+			"groupName": "weekly dependency updates"
+		},
+		{
+			"description": "Runtime dependencies the mod is compiled and shipped against: always reviewed by a human, regardless of update size.",
+			"matchPackageNames": [
+				"com.mojang:minecraft",
+				"net.fabricmc:fabric-loader",
+				"net.fabricmc.fabric-api:fabric-api"
+			],
+			"automerge": false
+		},
+		{
+			"description": "Build-time-only tooling (Gradle plugin, test framework): safe to auto-merge for patch/minor bumps.",
+			"matchPackageNames": ["net.fabricmc:fabric-loom", "org.junit:junit-bom", "org.junit.jupiter:junit-jupiter"],
+			"matchUpdateTypes": ["patch", "minor"],
+			"automerge": true
+		},
+		{
+			"description": "GitHub Actions are build/CI tooling, not a production dependency: safe to auto-merge for patch/minor/digest bumps.",
+			"matchManagers": ["github-actions"],
+			"matchUpdateTypes": ["patch", "minor", "digest"],
+			"automerge": true
+		},
+		{
+			"description": "Never auto-merge a major bump, even for dev tooling.",
+			"matchUpdateTypes": ["major"],
+			"automerge": false
+		}
+	]
+}

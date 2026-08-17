@@ -1,3 +1,10 @@
+# Gradle
+.gradle/
+build/
+
+# Fabric Loom dev-time integrated server (created by the runServer/runClient tasks)
+run/
+
 # Compiled class file
 *.class
 
@@ -22,3 +29,8 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# The Gradle wrapper jar is a checked-in binary (needed so ./gradlew works with no local Gradle
+# install); re-include it despite the blanket *.jar rule above. Must stay after that rule -
+# gitignore patterns are order-sensitive, and an earlier negation would be overridden by it.
+!gradle/wrapper/gradle-wrapper.jar

@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "timekeeper",
+	"version": "${version}",
+	"name": "Timekeeper",
+	"description": "Synchronizes the world's time of day, moon phase, and weather with the real world.",
+	"authors": [
+		"Vianpyro"
+	],
+	"contact": {
+		"homepage": "https://github.com/Vianpyro/timekeeper",
+		"issues": "https://github.com/Vianpyro/timekeeper/issues",
+		"sources": "https://github.com/Vianpyro/timekeeper"
+	},
+	"license": "MIT",
+	"environment": "server",
+	"entrypoints": {
+		"main": [
+			"io.github.vianpyro.timekeeper.TimekeeperMod"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

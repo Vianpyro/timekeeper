@@ -1,0 +1,54 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+repositories {
+    // Loom adds the Fabric/Minecraft/library repositories automatically.
+    // Add repositories here only when depending on other mods.
+}
+
+dependencies {
+    // No "mappings" dependency: Minecraft 26.2 ships unobfuscated with Mojang's real names
+    // baked in directly (since 26.1, see https://fabricmc.net/2026/03/14/261.html). There is no
+    // separate obfuscation map to choose anymore - PROJECT_SPEC.md's "mappings
+    // loom.officialMojangMappings()" instruction predates that change and no longer applies;
+    // the intent behind it (real Mojang names, not Yarn) is satisfied automatically instead.
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    testImplementation platform('org.junit:junit-bom:6.1.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+    def props = ["version": project.version]
+    inputs.properties props
+
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+}
+
+java {
+    // Loom automatically attaches sourcesJar to the "build" task when this is present.
+    withSourcesJar()
+
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+    from('LICENSE') {
+        rename { "${it}_${project.name}" }
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
