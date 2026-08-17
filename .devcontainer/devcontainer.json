@@ -1,17 +1,33 @@
 {
-    "name": "Template Development Container",
-    "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+    "name": "Timekeeper (Fabric / Java 25)",
+    "image": "mcr.microsoft.com/devcontainers/java:25-bookworm",
+    "features": {
+        "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+    "mounts": [
+        "source=timekeeper-claude,target=/home/vscode/.claude,type=volume",
+        "source=timekeeper-gh,target=/home/vscode/.config/gh,type=volume"
+    ],
+    // Docker creates a fresh named volume's mountpoint owned by root.
+    "postCreateCommand": "sudo chown -R vscode:vscode /home/vscode/.claude /home/vscode/.config/gh",
     "customizations": {
-        "settings": {
-            "terminal.integrated.shell.linux": "/bin/bash"
-        },
         "vscode": {
             "extensions": [
-                "ms-vscode.atom-keybindings",
-                "ms-vscode-remote.remote-containers",
-                "ms-azuretools.vscode-docker",
-                "myriad-dreamin.tinymist"
-            ]
+                "vscjava.vscode-java-pack",
+                "vscjava.vscode-gradle",
+                "anthropic.claude-code"
+            ],
+            "settings": {
+                "java.configuration.runtimes": [
+                    {
+                        "name": "JavaSE-25",
+                        "path": "/usr/lib/jvm/msopenjdk-current",
+                        "default": true
+                    }
+                ],
+                "java.import.gradle.wrapper.enabled": true
+            }
         }
     },
     "remoteUser": "vscode"
