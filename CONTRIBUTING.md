@@ -71,14 +71,35 @@ Everything that actually touches the game needs a manual pass after any change t
 
 ## Release process
 
-Fully automated once a release PR is merged - see the "CI/CD" section of `PROJECT_SPEC.md` for the
-full decide/propose/publish design. As a maintainer, the only manual steps are:
+Mostly automated once a release PR is merged - see the "CI/CD" section of `PROJECT_SPEC.md` for
+the full decide/propose/publish design. As a maintainer:
 
 1. Merge PRs to `main` as normal, using Conventional Commit titles.
-2. When `cd.yml` opens or updates the `chore(release): publish vX.Y.Z` PR, review the version
-   bump and changelog it computed, then merge it.
-3. That merge tags the release and `release.yml` takes it from there (build, draft GitHub
-   release, publish to Modrinth, undraft) with no further action needed.
+2. `cd.yml` opens or updates the `chore(release): publish vX.Y.Z` PR. **It's pushed by the
+   default `GITHUB_TOKEN`, so GitHub schedules its CI/pr-hygiene checks in an
+   "approval-required" state rather than starting them immediately** - open the PR and click
+   *Approve and run workflows* in the banner GitHub shows there. This is the one manual step
+   this pipeline has; see "Why there's a manual click" below for why it's there on purpose
+   instead of removed with a token.
+3. Once checks are green, review the version bump and changelog `cd.yml` computed, then merge.
+4. That merge tags the release and fires a `repository_dispatch` to `release.yml`, which takes
+   it from there (build, draft GitHub release, publish to Modrinth, undraft) with no further
+   action needed - this part needs no approval click, since `repository_dispatch` is one of the
+   two event types GitHub always lets a `GITHUB_TOKEN` trigger (see the comment at the top of
+   `cd-tag-release.sh`).
+
+### Why there's a manual click
+
+`cd.yml` uses the repository's own default `GITHUB_TOKEN` throughout, on purpose, so this
+project needs no standing secret with write access beyond what Actions already provides. The
+cost: GitHub's anti-recursion safeguard holds `pull_request` workflow runs it creates for a
+`GITHUB_TOKEN`-authenticated PR pending approval, rather than starting them immediately - that's
+the click in step 2 above. If that becomes annoying, the fix is a repository secret holding a
+token with a real (non-bot) identity - e.g. a fine-grained
+[personal access token](https://github.com/settings/personal-access-tokens) scoped to this repo
+with Contents + Pull requests read/write - used in place of `github.token` for `cd.yml`'s
+checkout and `GH_TOKEN`. That removes the click entirely (a PAT-authenticated PR isn't subject to
+the same hold) at the cost of a token to create and eventually rotate.
 
 ### One-time repository setup
 
@@ -93,3 +114,18 @@ A few things GitHub doesn't let you express as committed files - set these up on
 - Repository variable `MODRINTH_PROJECT_ID`: the Modrinth project's ID, once it exists (create
   the project on Modrinth first - `release.yml` publishes versions to an existing project, it
   doesn't create one).
+
+### If a release gets stuck
+
+If a release PR was merged and the tag exists but `release.yml` never ran (check the Actions tab
+for a matching run) - most likely the `repository_dispatch` call in `cd-tag-release.sh` failed or
+was skipped for some reason worth looking into first - re-run it manually without needing
+another version bump:
+
+```bash
+gh workflow run release.yml -f tag=vX.Y.Z
+```
+
+or from the Actions tab: *Release* → *Run workflow* → enter the tag. It checks out that exact
+tag's commit regardless of which branch is selected in the dropdown, so this is safe to use even
+if `main` has moved on since.

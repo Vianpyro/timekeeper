@@ -39,10 +39,20 @@ jobs:
             echo "is_release_merge=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # See the comment at the top of cd-tag-release.sh: this uses a repository_dispatch, not a
+      # plain tag push, to actually get release.yml running under the default GITHUB_TOKEN.
       - name: Tag release
         if: steps.detect.outputs.is_release_merge == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: .github/scripts/cd-tag-release.sh "${{ steps.detect.outputs.version_tag }}"
 
+      # NOTE: this pushes the release/next branch and opens/updates the release PR using the
+      # default GITHUB_TOKEN. That means the PR's own CI/pr-hygiene runs land in an
+      # "approval-required" state (GitHub shows a banner asking someone with write access to
+      # click "Approve workflows to run") rather than starting immediately - see CONTRIBUTING.md
+      # "Release process". This is a deliberate trade-off to avoid needing a standing secret
+      # token; if that manual click becomes annoying, revisit with a PAT/GitHub App token instead.
       - name: Propose release
         if: steps.detect.outputs.is_release_merge == 'false'
         env:

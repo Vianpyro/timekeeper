@@ -1,9 +1,24 @@
 name: Release
 
 on:
+  # A human (or any token with a real, non-GITHUB_TOKEN identity) pushing a tag directly still
+  # reaches this normally.
   push:
     tags:
       - "v*"
+  # The normal path: cd.yml tags a release and fires this explicitly (see cd-tag-release.sh) -
+  # a plain tag push authenticated with cd.yml's default GITHUB_TOKEN would not trigger this
+  # workflow at all (GitHub's anti-recursion safeguard doesn't apply to repository_dispatch).
+  repository_dispatch:
+    types: [release]
+  # Manual escape hatch: retry a release that, for whatever reason, never ran or failed midway -
+  # see CONTRIBUTING.md "If a release gets stuck".
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to (re-)build and publish, e.g. v0.2.0. Only needed to manually retry a release that didn't run."
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -15,13 +30,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Resolve tag
+        id: resolve
+        run: echo "tag=${{ github.event.inputs.tag || github.event.client_payload.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      # Explicit ref, not just whatever workflow_dispatch defaults to (the branch selected in the
+      # "Run workflow" dropdown): this must always build the code the tag actually points at.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/${{ steps.resolve.outputs.tag }}
           fetch-depth: 0
 
       - name: Verify tag matches gradle.properties version
-        run: .github/scripts/release-verify-version.sh "${GITHUB_REF_NAME}"
+        run: .github/scripts/release-verify-version.sh "${{ steps.resolve.outputs.tag }}"
 
       - name: Set up JDK 25
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
@@ -47,19 +69,26 @@ jobs:
           echo "jar_path=$JAR" >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes
-        run: .github/scripts/release-generate-notes.sh "${GITHUB_REF_NAME}"
+        run: .github/scripts/release-generate-notes.sh "${{ steps.resolve.outputs.tag }}"
 
       # Draft first, attach the jar, then only publish to Modrinth once the draft exists - if
       # Modrinth publishing fails below, the release is left safely in draft rather than live
-      # with no matching Modrinth listing.
-      - name: Create draft GitHub release
+      # with no matching Modrinth listing. Re-running for the same tag (workflow_dispatch) reuses
+      # the existing draft/release instead of failing, so a retry after a transient failure works.
+      - name: Create or update draft GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" "${{ steps.artifact.outputs.jar_path }}" \
-            --draft \
-            --title "${GITHUB_REF_NAME}" \
-            --notes-file RELEASE_NOTES.md
+          TAG="${{ steps.resolve.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${{ steps.artifact.outputs.jar_path }}" --clobber
+            gh release edit "$TAG" --notes-file RELEASE_NOTES.md
+          else
+            gh release create "$TAG" "${{ steps.artifact.outputs.jar_path }}" \
+              --draft \
+              --title "$TAG" \
+              --notes-file RELEASE_NOTES.md
+          fi
 
       - name: Publish to Modrinth
         uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1 (renamed from Kir-Antipov/mc-publish)
@@ -67,8 +96,8 @@ jobs:
           modrinth-id: ${{ vars.MODRINTH_PROJECT_ID }}
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: ${{ steps.artifact.outputs.jar_path }}
-          name: Timekeeper ${{ github.ref_name }}
-          version: ${{ github.ref_name }}
+          name: Timekeeper ${{ steps.resolve.outputs.tag }}
+          version: ${{ steps.resolve.outputs.tag }}
           version-type: release
           changelog-file: RELEASE_NOTES.md
           loaders: fabric
@@ -80,4 +109,4 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${GITHUB_REF_NAME}" --draft=false
+        run: gh release edit "${{ steps.resolve.outputs.tag }}" --draft=false
