@@ -3,6 +3,11 @@
 All notable changes to this project are documented in this file.
 Sections below are generated automatically by cd.yml from Conventional Commits.
 
+## [0.2.0] - 2026-08-17
+
+### Features
+- **cd:** trigger release workflow via repository_dispatch after tagging (1a83364)
+
 ## [0.1.0] - 2026-08-17
 
 ### Features
