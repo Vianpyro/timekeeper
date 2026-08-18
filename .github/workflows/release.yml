@@ -90,6 +90,26 @@ jobs:
               --notes-file RELEASE_NOTES.md
           fi
 
+      # mc-publish treats a missing modrinth-id/modrinth-token as "don't publish to Modrinth this
+      # run" and quietly skips it rather than failing - by design, since both inputs are meant to
+      # be optional for projects that don't publish there. For this project they aren't optional,
+      # so a green run that silently skipped Modrinth is exactly the failure mode this guards
+      # against: it would otherwise undraft the GitHub release below with no matching Modrinth
+      # version and no error anywhere to notice. Most likely cause if this fires: the repository
+      # secret/variable were created scoped to a GitHub *environment* instead of the repository -
+      # this job doesn't declare `environment:`, so it wouldn't see them either way - see
+      # CONTRIBUTING.md "One-time repository setup".
+      - name: Ensure Modrinth credentials are configured
+        run: |
+          if [[ -z "${{ vars.MODRINTH_PROJECT_ID }}" ]]; then
+            echo "::error::Repository variable MODRINTH_PROJECT_ID is not set (or not visible to this job)."
+            exit 1
+          fi
+          if [[ -z "${{ secrets.MODRINTH_TOKEN }}" ]]; then
+            echo "::error::Repository secret MODRINTH_TOKEN is not set (or not visible to this job)."
+            exit 1
+          fi
+
       - name: Publish to Modrinth
         uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1 (renamed from Kir-Antipov/mc-publish)
         with:
